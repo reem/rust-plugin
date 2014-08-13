@@ -1,0 +1,11 @@
+[package]
+
+name = "plugin"
+version = "0.0.0"
+authors = ["Jonathan Reem <jonathan.reem@gmail.com>"]
+
+[[lib]]
+
+name = "plugin"
+path = "src/lib.rs"
+
