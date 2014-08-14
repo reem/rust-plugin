@@ -29,19 +29,19 @@ pub trait Extensible {
     /// Get a mutable reference to the type's extension storage.
     fn extensions_mut(&mut self) -> &mut TypeMap;
 
-    /// Creates, stores and returns an instance of T if construction of T
+    /// Creates, stores and returns reference of T if construction of T
     /// through T's implementation of create succeeds, otherwise None.
-    fn get<T: PluginFor<Self> + 'static>(&mut self) -> Option<&T> {
+    fn get_ref<T: PluginFor<Self> + 'static>(&mut self) -> Option<&T> {
         let found = self.extensions().contains::<T>();
         if found {
             return self.extensions().find();
         }
         let t = try_option!(PluginFor::create(self));
         self.extensions_mut().insert::<T>(t);
-        self.get()
+        self.get_ref()
     }
 
-    /// Creates, stores and returns a mutable ref T if construction of T
+    /// Creates, stores and returns a mutable ref of T if construction of T
     /// through T's implementation of create succeeds, otherwise None.
     fn get_mut<T: PluginFor<Self> + 'static>(&mut self) -> Option<&mut T> {
         let found = self.extensions().contains::<T>();
@@ -51,6 +51,18 @@ pub trait Extensible {
         let t = try_option!(PluginFor::create(self));
         self.extensions_mut().insert::<T>(t);
         self.get_mut()
+    }
+
+    /// Creates, stores and returns an instance of T if construction of T
+    /// through T's implementation of create succeeds, otherwise None.
+    fn get<T: PluginFor<Self> + 'static + Clone>(&mut self) -> Option<T> {
+        let found = self.extensions().contains::<T>();
+        if found {
+            return self.extensions().find::<T>().map(|c| c.clone());
+        }
+        let t = try_option!(PluginFor::create(self));
+        self.extensions_mut().insert::<T>(t);
+        self.get()
     }
 }
 
@@ -104,7 +116,7 @@ mod test {
 
     macro_rules! generate_plugin (
         ($t:ty, $v:ident, $v2:expr) => {
-            #[deriving(PartialEq, Show)]
+            #[deriving(PartialEq, Show, Clone)]
             struct $v(uint);
 
             impl PluginFor<Extended> for $t {
@@ -126,9 +138,9 @@ mod test {
 
     #[test] fn test_simple() {
         let mut extended = Extended::new();
-        assert_eq!(extended.get::<One>(),   Some(&One(1)))
-        assert_eq!(extended.get::<Two>(),   Some(&Two(2)))
-        assert_eq!(extended.get::<Three>(), Some(&Three(3)))
+        assert_eq!(extended.get_ref::<One>(),   Some(&One(1)))
+        assert_eq!(extended.get_ref::<Two>(),   Some(&Two(2)))
+        assert_eq!(extended.get_ref::<Three>(), Some(&Three(3)))
     }
 
     #[test] fn test_resize() {
@@ -143,7 +155,7 @@ mod test {
         extended.get::<Eight>();
         extended.get::<Nine>();
         extended.get::<Ten>();
-        assert_eq!(extended.get::<One>(), Some(&One(1)))
+        assert_eq!(extended.get_ref::<One>(), Some(&One(1)))
     }
 }
 
