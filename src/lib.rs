@@ -6,9 +6,8 @@
 
 //! Lazily-Evaluated, Order-Independent Plugins for Extensible Types.
 
-use std::any::{Any, AnyMutRefExt, AnyRefExt};
-use std::intrinsics::TypeId;
-use std::collections::HashMap;
+extern crate anymap;
+use anymap::AnyMap;
 
 macro_rules! try_option (
     ($e:expr) => {
@@ -21,13 +20,13 @@ macro_rules! try_option (
 
 /// Defines an interface that extensible types must implement.
 ///
-/// Extensible types must contain a TypeMap.
+/// Extensible types must contain a AnyMap.
 pub trait Extensible {
     /// Get a reference to the type's extension storage.
-    fn extensions(&self) -> &TypeMap;
+    fn extensions(&self) -> &AnyMap;
 
     /// Get a mutable reference to the type's extension storage.
-    fn extensions_mut(&mut self) -> &mut TypeMap;
+    fn extensions_mut(&mut self) -> &mut AnyMap;
 
     /// Creates, stores and returns reference of T if construction of T
     /// through T's implementation of create succeeds, otherwise None.
@@ -72,46 +71,24 @@ pub trait PluginFor<T: Extensible> {
     fn create(&T) -> Option<Self>;
 }
 
-/// A map of which can contain zero or one instances of any type.
-pub struct TypeMap {
-    map: HashMap<TypeId, Box<Any>>
-}
-
-impl TypeMap {
-    /// Create a new TypeMap
-    pub fn new() -> TypeMap { TypeMap { map: HashMap::new() } }
-
-    /// Find and get a reference to an instance of T if it exists.
-    pub fn find<T: 'static>(&self) -> Option<&T> { self.map.find(&TypeId::of::<T>()).and_then(|any| any.downcast_ref()) }
-
-    /// Find and get a mutable reference to an instance of T if it exists.
-    pub fn find_mut<T: 'static>(&mut self) -> Option<&mut T> { self.map.find_mut(&TypeId::of::<T>()).and_then(|any| any.downcast_mut()) }
-
-    /// Insert an instance of T.
-    pub fn insert<T: 'static>(&mut self, t: T) { self.map.insert(TypeId::of::<T>(), box t as Box<Any>); }
-
-    /// Does the map contain an instance of T?
-    pub fn contains<T: 'static>(&self) -> bool { self.map.contains_key(&TypeId::of::<T>()) }
-}
-
 #[cfg(test)]
 mod test {
-    use std::collections::HashMap;
-    use super::{TypeMap, Extensible, PluginFor};
+    use anymap::AnyMap;
+    use super::{Extensible, PluginFor};
 
     struct Extended {
-        map: TypeMap
+        map: AnyMap
     }
 
     impl Extended {
         fn new() -> Extended {
-            Extended { map: TypeMap { map: HashMap::with_capacity(2) } }
+            Extended { map: AnyMap::new() }
         }
     }
 
     impl Extensible for Extended {
-        fn extensions(&self) -> &TypeMap { &self.map }
-        fn extensions_mut(&mut self) -> &mut TypeMap { &mut self.map }
+        fn extensions(&self) -> &AnyMap { &self.map }
+        fn extensions_mut(&mut self) -> &mut AnyMap { &mut self.map }
     }
 
     macro_rules! generate_plugin (

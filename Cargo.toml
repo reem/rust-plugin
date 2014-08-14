@@ -9,3 +9,7 @@ authors = ["Jonathan Reem <jonathan.reem@gmail.com>"]
 name = "plugin"
 path = "src/lib.rs"
 
+[dependencies.anymap]
+
+git = "https://github.com/chris-morgan/anymap"
+
