@@ -1,4 +1,5 @@
 #![license = "MIT"]
+#![deny(missing_doc)]
 #![deny(warnings)]
 
 #![feature(macro_rules)]
@@ -9,38 +10,6 @@ use std::any::{Any, AnyMutRefExt, AnyRefExt};
 use std::intrinsics::TypeId;
 use std::collections::HashMap;
 
-pub struct TypeMap {
-    map: HashMap<TypeId, Box<Any>>
-}
-
-impl TypeMap {
-    pub fn new() -> TypeMap { TypeMap { map: HashMap::new() } }
-
-    pub fn find<T: 'static>(&self) -> Option<&T> { self.map.find(&TypeId::of::<T>()).and_then(|any| any.downcast_ref()) }
-
-    pub fn find_mut<T: 'static>(&mut self) -> Option<&mut T> { self.map.find_mut(&TypeId::of::<T>()).and_then(|any| any.downcast_mut()) }
-
-    pub fn insert<T: 'static>(&mut self, t: T) { self.map.insert(TypeId::of::<T>(), box t as Box<Any>); }
-
-    pub fn remove<T: 'static>(&mut self) { self.map.remove(&TypeId::of::<T>()); }
-
-    pub fn contains<T: 'static>(&self) -> bool { self.map.contains_key(&TypeId::of::<T>()) }
-}
-
-pub trait Extensible {
-    fn extensions(&self) -> &TypeMap;
-    fn extensions_mut(&mut self) -> &mut TypeMap;
-}
-
-pub trait PluginFor<T: Extensible> {
-    fn create(&T) -> Option<Self>;
-}
-
-pub trait Get {
-    fn get<T: PluginFor<Self> + 'static>(&mut self) -> Option<&T>;
-    fn get_mut<T: PluginFor<Self> + 'static>(&mut self) -> Option<&mut T>;
-}
-
 macro_rules! try_option (
     ($e:expr) => {
         match $e {
@@ -50,30 +19,73 @@ macro_rules! try_option (
     }
 )
 
-fn compute<E: Extensible, T: PluginFor<E> + 'static>(map: &mut E) -> Option<&T> {
-    let t = try_option!(PluginFor::create(map));
-    map.extensions_mut().insert::<T>(t);
-    map.get()
-}
+/// Defines an interface that extensible types must implement.
+///
+/// Extensible types must contain a TypeMap.
+pub trait Extensible {
+    /// Get a reference to the type's extension storage.
+    fn extensions(&self) -> &TypeMap;
 
-impl<E: Extensible> Get for E {
-    fn get<T: PluginFor<E> + 'static>(&mut self) -> Option<&T> {
+    /// Get a mutable reference to the type's extension storage.
+    fn extensions_mut(&mut self) -> &mut TypeMap;
+
+    /// Creates, stores and returns an instance of T if construction of T
+    /// through T's implementation of create succeeds, otherwise None.
+    fn get<T: PluginFor<Self> + 'static>(&mut self) -> Option<&T> {
         let found = self.extensions().contains::<T>();
         if found {
             return self.extensions().find();
         }
-        compute(self)
+        let t = try_option!(PluginFor::create(self));
+        self.extensions_mut().insert::<T>(t);
+        self.get()
     }
 
-    fn get_mut<T: PluginFor<E> + 'static>(&mut self) -> Option<&mut T> {
-        fail!()
+    /// Creates, stores and returns a mutable ref T if construction of T
+    /// through T's implementation of create succeeds, otherwise None.
+    fn get_mut<T: PluginFor<Self> + 'static>(&mut self) -> Option<&mut T> {
+        let found = self.extensions().contains::<T>();
+        if found {
+            return self.extensions_mut().find_mut();
+        }
+        let t = try_option!(PluginFor::create(self));
+        self.extensions_mut().insert::<T>(t);
+        self.get_mut()
     }
+}
+
+/// Implementations of this trait can act as plugins for `T`, via `T::get<P>()`
+pub trait PluginFor<T: Extensible> {
+    /// Create Self from an instance of T. This will be called only once.
+    fn create(&T) -> Option<Self>;
+}
+
+/// A map of which can contain zero or one instances of any type.
+pub struct TypeMap {
+    map: HashMap<TypeId, Box<Any>>
+}
+
+impl TypeMap {
+    /// Create a new TypeMap
+    pub fn new() -> TypeMap { TypeMap { map: HashMap::new() } }
+
+    /// Find and get a reference to an instance of T if it exists.
+    pub fn find<T: 'static>(&self) -> Option<&T> { self.map.find(&TypeId::of::<T>()).and_then(|any| any.downcast_ref()) }
+
+    /// Find and get a mutable reference to an instance of T if it exists.
+    pub fn find_mut<T: 'static>(&mut self) -> Option<&mut T> { self.map.find_mut(&TypeId::of::<T>()).and_then(|any| any.downcast_mut()) }
+
+    /// Insert an instance of T.
+    pub fn insert<T: 'static>(&mut self, t: T) { self.map.insert(TypeId::of::<T>(), box t as Box<Any>); }
+
+    /// Does the map contain an instance of T?
+    pub fn contains<T: 'static>(&self) -> bool { self.map.contains_key(&TypeId::of::<T>()) }
 }
 
 #[cfg(test)]
 mod test {
     use std::collections::HashMap;
-    use super::{TypeMap, Extensible, PluginFor, Get};
+    use super::{TypeMap, Extensible, PluginFor};
 
     struct Extended {
         map: TypeMap
