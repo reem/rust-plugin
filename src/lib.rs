@@ -23,6 +23,8 @@ impl TypeMap {
     pub fn insert<T: 'static>(&mut self, t: T) { self.map.insert(TypeId::of::<T>(), box t as Box<Any>); }
 
     pub fn remove<T: 'static>(&mut self) { self.map.remove(&TypeId::of::<T>()); }
+
+    pub fn contains<T: 'static>(&self) -> bool { self.map.contains_key(&TypeId::of::<T>()) }
 }
 
 pub trait Extensible {
@@ -56,11 +58,9 @@ fn compute<E: Extensible, T: PluginFor<E> + 'static>(map: &mut E) -> Option<&T> 
 
 impl<E: Extensible> Get for E {
     fn get<T: PluginFor<E> + 'static>(&mut self) -> Option<&T> {
-        {
-            let found = self.extensions().find();
-            if found.is_some() {
-                return found;
-            }
+        let found = self.extensions().contains::<T>();
+        if found {
+            return self.extensions().find();
         }
         compute(self)
     }
@@ -72,8 +72,6 @@ impl<E: Extensible> Get for E {
 
 #[cfg(test)]
 mod test {
-    use std::cell::UnsafeCell;
-    use std::mem;
     use std::collections::HashMap;
     use super::{TypeMap, Extensible, PluginFor, Get};
 
@@ -89,7 +87,7 @@ mod test {
 
     impl Extensible for Extended {
         fn extensions(&self) -> &TypeMap { &self.map }
-        fn extensions_mut(&self) -> &mut TypeMap { &mut self.map }
+        fn extensions_mut(&mut self) -> &mut TypeMap { &mut self.map }
     }
 
     macro_rules! generate_plugin (
@@ -115,15 +113,15 @@ mod test {
     generate_plugin!(Ten, Ten, 10)
 
     #[test] fn test_simple() {
-        let extended = Extended::new();
+        let mut extended = Extended::new();
         assert_eq!(extended.get::<One>(),   Some(&One(1)))
         assert_eq!(extended.get::<Two>(),   Some(&Two(2)))
         assert_eq!(extended.get::<Three>(), Some(&Three(3)))
     }
 
     #[test] fn test_resize() {
-        let extended = Extended::new();
-        let one = extended.get::<One>();
+        let mut extended = Extended::new();
+        extended.get::<One>();
         extended.get::<Two>();
         extended.get::<Three>();
         extended.get::<Four>();
@@ -133,7 +131,7 @@ mod test {
         extended.get::<Eight>();
         extended.get::<Nine>();
         extended.get::<Ten>();
-        assert_eq!(*one.unwrap(), One(1));
+        assert_eq!(extended.get::<One>(), Some(&One(1)))
     }
 }
 
