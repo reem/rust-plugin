@@ -27,7 +27,10 @@ pub trait Extensible {
 
     /// Get a mutable reference to the type's extension storage.
     fn extensions_mut(&mut self) -> &mut AnyMap;
+}
 
+/// Expose an interface for cacheing plugins.
+pub trait GetCached: Extensible {
     /// Creates, stores and returns reference of T if construction of T
     /// through T's implementation of create succeeds, otherwise None.
     fn get_ref<T: PluginFor<Self> + 'static>(&mut self) -> Option<&T> {
@@ -65,8 +68,20 @@ pub trait Extensible {
     }
 }
 
+/// An interface for getting plugins on non-extensible types.
+pub trait Get {
+    /// Call the appropriate PluginFor implementation to create an instance
+    /// of T.
+    fn compute<T: PluginFor<Self>>(&self) -> Option<T> {
+        PluginFor::create(self)
+    }
+}
+
+impl<T> Get for T {}
+impl<T: Extensible> GetCached for T {}
+
 /// Implementations of this trait can act as plugins for `T`, via `T::get<P>()`
-pub trait PluginFor<T: Extensible> {
+pub trait PluginFor<T> {
     /// Create Self from an instance of T. This will be called only once.
     fn create(&T) -> Option<Self>;
 }
@@ -74,7 +89,7 @@ pub trait PluginFor<T: Extensible> {
 #[cfg(test)]
 mod test {
     use anymap::AnyMap;
-    use super::{Extensible, PluginFor};
+    use super::{Extensible, PluginFor, GetCached};
 
     struct Extended {
         map: AnyMap
