@@ -30,41 +30,43 @@ pub trait Extensible {
 }
 
 /// Expose an interface for cacheing plugins.
-pub trait GetCached: Extensible {
+pub trait GetCached<'a>: Extensible {
     /// Creates, stores and returns reference of T if construction of T
     /// through T's implementation of create succeeds, otherwise None.
-    fn get_ref<T: PluginFor<Self> + 'static>(&mut self) -> Option<&T> {
-        let found = self.extensions().contains::<T>();
-        if found {
-            return self.extensions().find();
-        }
-        let t = try_option!(PluginFor::create(self));
-        self.extensions_mut().insert::<T>(t);
-        self.get_ref()
+    fn get_ref<'a, T: PluginFor<Self> + 'static>(&'a mut self) -> Option<&'a T> {
+        let f = |x: &'a mut T| -> &'a T {
+            &*x
+        };
+        self.get_common::<T, &'a T>(f)
     }
 
     /// Creates, stores and returns a mutable ref of T if construction of T
     /// through T's implementation of create succeeds, otherwise None.
-    fn get_mut<T: PluginFor<Self> + 'static>(&mut self) -> Option<&mut T> {
-        let found = self.extensions().contains::<T>();
-        if found {
-            return self.extensions_mut().find_mut();
-        }
-        let t = try_option!(PluginFor::create(self));
-        self.extensions_mut().insert::<T>(t);
-        self.get_mut()
+    fn get_mut<'a, T: PluginFor<Self> + 'static>(&'a mut self) -> Option<&'a mut T> {
+        let f = |x: &'a mut T| -> &'a mut T {
+            x
+        };
+        self.get_common::<T, &'a mut T>(f)
     }
 
     /// Creates, stores and returns an instance of T if construction of T
     /// through T's implementation of create succeeds, otherwise None.
-    fn get<T: PluginFor<Self> + 'static + Clone>(&mut self) -> Option<T> {
+    fn get<'a, T: PluginFor<Self> + 'static + Clone>(&'a mut self) -> Option<T> {
+        let f = |x: &'a mut T| -> T {
+            x.clone()
+        };
+        self.get_common::<T, T>(f)
+    }
+
+    #[doc(hidden)]
+    fn get_common<'a, T: PluginFor<Self> + 'static, R>(&'a mut self, f: |&'a mut T| -> R) -> Option<R> {
         let found = self.extensions().contains::<T>();
         if found {
-            return self.extensions().find::<T>().map(|c| c.clone());
+            return self.extensions_mut().find_mut::<T>().map(f);
         }
-        let t = try_option!(PluginFor::create(self));
-        self.extensions_mut().insert::<T>(t);
-        self.get()
+        let plugin = try_option!(PluginFor::create(self));
+        self.extensions_mut().insert::<T>(plugin);
+        self.get_common::<T, R>(f)
     }
 }
 
@@ -78,7 +80,7 @@ pub trait Get {
 }
 
 impl<T> Get for T {}
-impl<T: Extensible> GetCached for T {}
+impl<'a, T: Extensible> GetCached<'a> for T {}
 
 /// Implementations of this trait can act as plugins for `T`, via `T::get<P>()`
 pub trait PluginFor<T> {

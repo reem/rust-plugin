@@ -4,7 +4,7 @@ name = "plugin"
 version = "0.0.0"
 authors = ["Jonathan Reem <jonathan.reem@gmail.com>"]
 
-[[lib]]
+[lib]
 
 name = "plugin"
 path = "src/lib.rs"
