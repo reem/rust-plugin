@@ -187,18 +187,18 @@ mod test {
         let mut extended = Extended::new();
 
         // Define a struct.
-        struct IntProducer;
+        struct IntPlugin;
 
-        // Map it onto an `i32` key.
-        impl Assoc<i32> for IntProducer {}
+        // Map it onto an `i32` value.
+        impl Assoc<i32> for IntPlugin {}
 
         // Define the plugin evaluation function.
-        impl PluginFor<Extended, i32> for IntProducer {
-            fn eval(_: &Extended, _: Phantom<IntProducer>) -> Option<i32> {
+        impl PluginFor<Extended, i32> for IntPlugin {
+            fn eval(_: &Extended, _: Phantom<IntPlugin>) -> Option<i32> {
                 Some(0i32)
             }
         }
-        assert_eq!(extended.get::<IntProducer>().unwrap(), 0i32);
+        assert_eq!(extended.get::<IntPlugin>().unwrap(), 0i32);
     }
 }
 
