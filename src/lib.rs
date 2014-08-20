@@ -10,7 +10,8 @@
 extern crate typemap;
 extern crate phantom;
 use typemap::{TypeMap, Assoc};
-use phantom::Phantom;
+
+pub use phantom::Phantom;
 
 /// Implementers of this trait can act as plugins for other types, via `OtherType::get<P>()`.
 ///
