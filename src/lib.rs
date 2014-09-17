@@ -113,7 +113,7 @@ pub trait Get<R> {
 impl<T, R> Get<R> for T {}
 
 /// If a plugin is implemented for an extensible type, then you can use all the caching get methods.
-impl<E: Extensible, R: Clone> GetCached<R> for E {}
+impl<E: Extensible, R: Clone+'static> GetCached<R> for E {}
 
 #[cfg(test)]
 mod test {
