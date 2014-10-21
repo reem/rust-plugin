@@ -23,7 +23,12 @@ pub use phantom::Phantom;
 /// `R` is the type of the value produced by the plugin.
 pub trait PluginFor<E, R = Self>: Assoc<R> {
     /// Create the plugin from an instance of the extended type.
-    fn eval(&E, Phantom<Self>) -> Option<R>;
+    ///
+    /// While `eval` is given a mutable reference to the extended
+    /// type, it is important for implementers to remember that
+    /// the result of `eval` is usually cached, so care should
+    /// be taken when doing mutation on the extended type.
+    fn eval(&mut E, Phantom<Self>) -> Option<R>;
 }
 
 /// Defines an interface that extensible types must implement.
@@ -90,6 +95,7 @@ pub trait GetCached<R: Clone + 'static>: Extensible {
             let result = self.extensions_mut().find_mut::<P, R>().unwrap();
             return Some(f(result));
         }
+
         // Otherwise, register a new plug-in and recurse.
         match PluginFor::eval(self, Phantom::<P>) {
             Some(value) => {
@@ -104,7 +110,7 @@ pub trait GetCached<R: Clone + 'static>: Extensible {
 /// An interface for using plugins with non-extensible types.
 pub trait Get<R> {
     /// Create and evaluate a once-off instance of a plugin.
-    fn compute<P: PluginFor<Self, R> + Assoc<R>>(&self) -> Option<R> {
+    fn compute<P: PluginFor<Self, R> + Assoc<R>>(&mut self) -> Option<R> {
         PluginFor::eval(self, Phantom::<P>)
     }
 }
@@ -144,7 +150,7 @@ mod test {
             impl Assoc<$t> for $t {}
 
             impl PluginFor<Extended> for $t {
-                fn eval(_: &Extended, _: Phantom<$t>) -> Option<$t> {
+                fn eval(_: &mut Extended, _: Phantom<$t>) -> Option<$t> {
                     Some($v($v2))
                 }
             }
@@ -164,9 +170,9 @@ mod test {
 
     #[test] fn test_simple() {
         let mut extended = Extended::new();
-        assert_eq!(extended.get_ref::<One>(),   Some(&One(1)))
-        assert_eq!(extended.get_ref::<Two>(),   Some(&Two(2)))
-        assert_eq!(extended.get_ref::<Three>(), Some(&Three(3)))
+        assert_eq!(extended.get::<One>(),   Some(One(1)))
+        assert_eq!(extended.get::<Two>(),   Some(Two(2)))
+        assert_eq!(extended.get::<Three>(), Some(Three(3)))
     }
 
     #[test] fn test_resize() {
@@ -195,7 +201,7 @@ mod test {
 
         // Define the plugin evaluation function.
         impl PluginFor<Extended, i32> for IntPlugin {
-            fn eval(_: &Extended, _: Phantom<IntPlugin>) -> Option<i32> {
+            fn eval(_: &mut Extended, _: Phantom<IntPlugin>) -> Option<i32> {
                 Some(0i32)
             }
         }

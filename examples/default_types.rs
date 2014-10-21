@@ -24,7 +24,7 @@ struct Plugin {
 impl Assoc<Plugin> for Plugin {}
 
 impl PluginFor<Struct> for Plugin {
-    fn eval(_: &Struct, _: Phantom<Plugin>) -> Option<Plugin> {
+    fn eval(_: &mut Struct, _: Phantom<Plugin>) -> Option<Plugin> {
         Some(Plugin { field: 7i32 })
     }
 }
