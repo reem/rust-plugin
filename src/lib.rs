@@ -1,9 +1,7 @@
 #![license = "MIT"]
-#![deny(missing_doc)]
-#![deny(warnings)]
+#![deny(missing_docs, warnings)]
 
-#![feature(macro_rules)]
-#![feature(default_type_params)]
+#![feature(macro_rules, default_type_params)]
 
 //! Lazily-Evaluated, Order-Independent Plugins for Extensible Types.
 
