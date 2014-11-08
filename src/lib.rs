@@ -90,7 +90,7 @@ pub trait GetCached<R: Clone + 'static>: Extensible {
         // If a plugin is already registered, extract and return its value.
         let found = self.extensions().contains::<P, R>();
         if found {
-            let result = self.extensions_mut().find_mut::<P, R>().unwrap();
+            let result = self.extensions_mut().get_mut::<P, R>().unwrap();
             return Some(f(result));
         }
 
