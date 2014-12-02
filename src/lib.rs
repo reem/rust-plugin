@@ -1,4 +1,3 @@
-#![license = "MIT"]
 #![deny(missing_docs, warnings)]
 
 #![feature(macro_rules, default_type_params)]
