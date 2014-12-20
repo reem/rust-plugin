@@ -151,24 +151,24 @@ mod test {
                 }
             }
         }
-    )
+    );
 
-    generate_simple_plugin!(One, One, 1)
-    generate_simple_plugin!(Two, Two, 2)
-    generate_simple_plugin!(Three, Three, 3)
-    generate_simple_plugin!(Four, Four, 4)
-    generate_simple_plugin!(Five, Five, 5)
-    generate_simple_plugin!(Six, Six, 6)
-    generate_simple_plugin!(Seven, Seven, 7)
-    generate_simple_plugin!(Eight, Eight, 8)
-    generate_simple_plugin!(Nine, Nine, 9)
-    generate_simple_plugin!(Ten, Ten, 10)
+    generate_simple_plugin!(One, One, 1);
+    generate_simple_plugin!(Two, Two, 2);
+    generate_simple_plugin!(Three, Three, 3);
+    generate_simple_plugin!(Four, Four, 4);
+    generate_simple_plugin!(Five, Five, 5);
+    generate_simple_plugin!(Six, Six, 6);
+    generate_simple_plugin!(Seven, Seven, 7);
+    generate_simple_plugin!(Eight, Eight, 8);
+    generate_simple_plugin!(Nine, Nine, 9);
+    generate_simple_plugin!(Ten, Ten, 10);
 
     #[test] fn test_simple() {
         let mut extended = Extended::new();
-        assert_eq!(extended.get::<One>(),   Some(One(1)))
-        assert_eq!(extended.get::<Two>(),   Some(Two(2)))
-        assert_eq!(extended.get::<Three>(), Some(Three(3)))
+        assert_eq!(extended.get::<One>(),   Some(One(1)));
+        assert_eq!(extended.get::<Two>(),   Some(Two(2)));
+        assert_eq!(extended.get::<Three>(), Some(Three(3)));
     }
 
     #[test] fn test_resize() {
