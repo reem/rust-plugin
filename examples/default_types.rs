@@ -1,8 +1,8 @@
 extern crate plugin;
 extern crate typemap;
 
-use plugin::{Extensible, PluginFor, GetCached, Phantom};
-use typemap::{TypeMap, Assoc};
+use plugin::{Extensible, Plugin, Pluggable, Phantom};
+use typemap::{TypeMap, Key};
 
 struct Struct {
     map: TypeMap
@@ -17,19 +17,25 @@ impl Extensible for Struct {
     }
 }
 
-#[deriving(Clone, Show)]
-struct Plugin {
+impl Pluggable for Struct {}
+
+#[derive(Clone, Show)]
+struct IntPlugin {
     field: i32
 }
-impl Assoc<Plugin> for Plugin {}
 
-impl PluginFor<Struct> for Plugin {
-    fn eval(_: &mut Struct, _: Phantom<Plugin>) -> Option<Plugin> {
-        Some(Plugin { field: 7i32 })
+impl Key for IntPlugin { type Value = IntPlugin; }
+
+impl Plugin for IntPlugin {
+    type Extended = Struct;
+
+    fn eval(_: &mut Struct, _: Phantom<IntPlugin>) -> Option<IntPlugin> {
+        Some(IntPlugin { field: 7i32 })
     }
 }
 
 fn main() {
     let mut x = Struct { map: TypeMap::new() };
-    println!("{}", x.get_ref::<Plugin>());
+    println!("{:?}", x.get_ref::<IntPlugin>());
 }
+

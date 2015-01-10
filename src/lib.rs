@@ -1,30 +1,29 @@
+#![allow(unstable)]
 #![deny(missing_docs, warnings)]
-#![feature(macro_rules, default_type_params)]
 
 //! Lazily-Evaluated, Order-Independent Plugins for Extensible Types.
 
 extern crate typemap;
 extern crate phantom;
-use typemap::{TypeMap, Assoc};
+use typemap::{TypeMap, Key};
 
 pub use phantom::Phantom;
 
 /// Implementers of this trait can act as plugins for other types, via `OtherType::get<P>()`.
 ///
 /// To create a plugin, implement this trait and provide an empty implementation
-/// of `Assoc<R>` to associate the plugin with its return type, `R`.
-///
-/// `E` is the type to extend.
-///
-/// `R` is the type of the value produced by the plugin.
-pub trait PluginFor<E, R = Self>: Assoc<R> {
+/// of `Key` to associate the plugin with its return type, `Key::Value`.
+pub trait Plugin: Key {
+    /// The type which this plugin extends.
+    type Extended: ?Sized;
+
     /// Create the plugin from an instance of the extended type.
     ///
     /// While `eval` is given a mutable reference to the extended
     /// type, it is important for implementers to remember that
     /// the result of `eval` is usually cached, so care should
     /// be taken when doing mutation on the extended type.
-    fn eval(&mut E, Phantom<Self>) -> Option<R>;
+    fn eval(&mut Self::Extended, Phantom<Self>) -> Option<Self::Value>;
 }
 
 /// Defines an interface that extensible types must implement.
@@ -41,18 +40,16 @@ pub trait Extensible {
 /// An interface for plugins that cache values between calls.
 ///
 /// `R` is the type of the plugin's return value, which must be cloneable.
-pub trait GetCached<R: Clone + 'static>: Extensible {
+pub trait Pluggable {
     /// Return a copy of the plugin's produced value.
     ///
     /// The plugin will be created if it doesn't exist already.
     /// If plugin creation fails, `None` is returned.
     ///
-    /// `P` is the plugin type, and `R` is the plugin's return type.
-    fn get<'a, P: PluginFor<Self, R> + 'static>(&'a mut self) -> Option<R> {
-        let f = |value: &'a mut R| -> R {
-            value.clone()
-        };
-        self.get_common::<P, R>(f)
+    /// `P` is the plugin type.
+    fn get<P: Plugin<Extended=Self>>(&mut self) -> Option<P::Value>
+    where P::Value: Clone + 'static, Self: Extensible {
+        self.get_ref::<P>().cloned()
     }
 
     /// Return a reference to the plugin's produced value.
@@ -60,12 +57,10 @@ pub trait GetCached<R: Clone + 'static>: Extensible {
     /// The plugin will be created if it doesn't exist already.
     /// If plugin creation fails, `None` is returned.
     ///
-    /// `P` is the plugin type, and `R` is the plugin's return type.
-    fn get_ref<'a, P: PluginFor<Self, R> + 'static>(&'a mut self) -> Option<&'a R> {
-        let f = |value: &'a mut R| -> &'a R {
-            &*value
-        };
-        self.get_common::<P, &'a R>(f)
+    /// `P` is the plugin type.
+    fn get_ref<P: Plugin<Extended=Self>>(&mut self) -> Option<&P::Value>
+    where P::Value: 'static, Self: Extensible {
+        self.get_mut::<P>().map(|mutref| &*mutref)
     }
 
     /// Return a mutable reference to the plugin's produced value.
@@ -73,55 +68,35 @@ pub trait GetCached<R: Clone + 'static>: Extensible {
     /// The plugin will be created if it doesn't exist already.
     /// If plugin creation fails, `None` is returned.
     ///
-    /// `P` is the plugin type, and `R` is the plugin's return type.
-    fn get_mut<'a, P: PluginFor<Self, R> + 'static>(&'a mut self) -> Option<&'a mut R> {
-        let f = |value: &'a mut R| -> &'a mut R {
-            value
-        };
-        self.get_common::<P, &'a mut R>(f)
-    }
+    /// `P` is the plugin type.
+    fn get_mut<P: Plugin<Extended=Self>>(&mut self) -> Option<&mut P::Value>
+    where P::Value: 'static, Self: Extensible {
+        use typemap::Entry::{Occupied, Vacant};
+        use std::intrinsics::unreachable;
 
-    /// Convenience function for get methods.
-    #[doc(hidden)]
-    fn get_common<'a, P: PluginFor<Self, R> + 'static, S>(&'a mut self, f: |&'a mut R| -> S)
-    -> Option<S> {
-        // If a plugin is already registered, extract and return its value.
-        let found = self.extensions().contains::<P, R>();
-        if found {
-            let result = self.extensions_mut().get_mut::<P, R>().unwrap();
-            return Some(f(result));
+        if self.extensions().contains::<P>() {
+            return self.extensions_mut().get_mut::<P>();
         }
 
-        // Otherwise, register a new plug-in and recurse.
-        match PluginFor::eval(self, Phantom::<P>) {
-            Some(value) => {
-                self.extensions_mut().insert::<P, R>(value);
-                self.get_common::<P, S>(f)
-            },
-            None => None
-        }
+        Plugin::eval(self, Phantom::<P>).map(move |data| {
+            match self.extensions_mut().entry::<P>() {
+                Vacant(entry) => entry.insert(data),
+                Occupied(..) => unsafe { unreachable() }
+            }
+        })
     }
-}
 
-/// An interface for using plugins with non-extensible types.
-pub trait Get<R> {
     /// Create and evaluate a once-off instance of a plugin.
-    fn compute<P: PluginFor<Self, R> + Assoc<R>>(&mut self) -> Option<R> {
-        PluginFor::eval(self, Phantom::<P>)
+    fn compute<P: Plugin<Extended=Self>>(&mut self) -> Option<P::Value> {
+        Plugin::eval(self, Phantom::<P>)
     }
 }
-
-/// If a plugin is registered for a type, allow it to be used without caching.
-impl<T, R> Get<R> for T {}
-
-/// If a plugin is implemented for an extensible type, then you can use all the caching get methods.
-impl<E: Extensible, R: Clone+'static> GetCached<R> for E {}
 
 #[cfg(test)]
 mod test {
-    use typemap::{TypeMap, Assoc};
+    use typemap::{TypeMap, Key};
     use phantom::Phantom;
-    use super::{Extensible, PluginFor, GetCached};
+    use super::{Extensible, Plugin, Pluggable};
 
     struct Extended {
         map: TypeMap
@@ -138,14 +113,18 @@ mod test {
         fn extensions_mut(&mut self) -> &mut TypeMap { &mut self.map }
     }
 
+    impl Pluggable for Extended {}
+
     macro_rules! generate_simple_plugin (
         ($t:ty, $v:ident, $v2:expr) => {
-            #[deriving(PartialEq, Show, Clone)]
-            struct $v(uint);
+            #[derive(PartialEq, Show, Clone)]
+            struct $v(i32);
 
-            impl Assoc<$t> for $t {}
+            impl Key for $t { type Value = $t; }
 
-            impl PluginFor<Extended> for $t {
+            impl Plugin for $t {
+                type Extended = Extended;
+
                 fn eval(_: &mut Extended, _: Phantom<$t>) -> Option<$t> {
                     Some($v($v2))
                 }
@@ -193,10 +172,12 @@ mod test {
         struct IntPlugin;
 
         // Map it onto an `i32` value.
-        impl Assoc<i32> for IntPlugin {}
+        impl Key for IntPlugin { type Value = i32; }
 
         // Define the plugin evaluation function.
-        impl PluginFor<Extended, i32> for IntPlugin {
+        impl Plugin for IntPlugin {
+            type Extended = Extended;
+
             fn eval(_: &mut Extended, _: Phantom<IntPlugin>) -> Option<i32> {
                 Some(0i32)
             }
