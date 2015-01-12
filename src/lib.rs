@@ -13,17 +13,14 @@ pub use phantom::Phantom;
 ///
 /// To create a plugin, implement this trait and provide an empty implementation
 /// of `Key` to associate the plugin with its return type, `Key::Value`.
-pub trait Plugin: Key {
-    /// The type which this plugin extends.
-    type Extended: ?Sized;
-
+pub trait Plugin<E: ?Sized>: Key {
     /// Create the plugin from an instance of the extended type.
     ///
     /// While `eval` is given a mutable reference to the extended
     /// type, it is important for implementers to remember that
     /// the result of `eval` is usually cached, so care should
     /// be taken when doing mutation on the extended type.
-    fn eval(&mut Self::Extended, Phantom<Self>) -> Option<Self::Value>;
+    fn eval(&mut E, Phantom<Self>) -> Option<Self::Value>;
 }
 
 /// Defines an interface that extensible types must implement.
@@ -47,7 +44,7 @@ pub trait Pluggable {
     /// If plugin creation fails, `None` is returned.
     ///
     /// `P` is the plugin type.
-    fn get<P: Plugin<Extended=Self>>(&mut self) -> Option<P::Value>
+    fn get<P: Plugin<Self>>(&mut self) -> Option<P::Value>
     where P::Value: Clone + 'static, Self: Extensible {
         self.get_ref::<P>().cloned()
     }
@@ -58,7 +55,7 @@ pub trait Pluggable {
     /// If plugin creation fails, `None` is returned.
     ///
     /// `P` is the plugin type.
-    fn get_ref<P: Plugin<Extended=Self>>(&mut self) -> Option<&P::Value>
+    fn get_ref<P: Plugin<Self>>(&mut self) -> Option<&P::Value>
     where P::Value: 'static, Self: Extensible {
         self.get_mut::<P>().map(|mutref| &*mutref)
     }
@@ -69,7 +66,7 @@ pub trait Pluggable {
     /// If plugin creation fails, `None` is returned.
     ///
     /// `P` is the plugin type.
-    fn get_mut<P: Plugin<Extended=Self>>(&mut self) -> Option<&mut P::Value>
+    fn get_mut<P: Plugin<Self>>(&mut self) -> Option<&mut P::Value>
     where P::Value: 'static, Self: Extensible {
         use typemap::Entry::{Occupied, Vacant};
         use std::intrinsics::unreachable;
@@ -87,7 +84,7 @@ pub trait Pluggable {
     }
 
     /// Create and evaluate a once-off instance of a plugin.
-    fn compute<P: Plugin<Extended=Self>>(&mut self) -> Option<P::Value> {
+    fn compute<P: Plugin<Self>>(&mut self) -> Option<P::Value> {
         Plugin::eval(self, Phantom::<P>)
     }
 }
@@ -122,9 +119,7 @@ mod test {
 
             impl Key for $t { type Value = $t; }
 
-            impl Plugin for $t {
-                type Extended = Extended;
-
+            impl Plugin<Extended> for $t {
                 fn eval(_: &mut Extended, _: Phantom<$t>) -> Option<$t> {
                     Some($v($v2))
                 }
@@ -175,9 +170,7 @@ mod test {
         impl Key for IntPlugin { type Value = i32; }
 
         // Define the plugin evaluation function.
-        impl Plugin for IntPlugin {
-            type Extended = Extended;
-
+        impl Plugin<Extended> for IntPlugin {
             fn eval(_: &mut Extended, _: Phantom<IntPlugin>) -> Option<i32> {
                 Some(0i32)
             }

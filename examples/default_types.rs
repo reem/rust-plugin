@@ -26,9 +26,7 @@ struct IntPlugin {
 
 impl Key for IntPlugin { type Value = IntPlugin; }
 
-impl Plugin for IntPlugin {
-    type Extended = Struct;
-
+impl Plugin<Struct> for IntPlugin {
     fn eval(_: &mut Struct, _: Phantom<IntPlugin>) -> Option<IntPlugin> {
         Some(IntPlugin { field: 7i32 })
     }
