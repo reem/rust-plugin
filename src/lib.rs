@@ -4,10 +4,7 @@
 //! Lazily-Evaluated, Order-Independent Plugins for Extensible Types.
 
 extern crate typemap;
-extern crate phantom;
 use typemap::{TypeMap, Key};
-
-pub use phantom::Phantom;
 
 /// Implementers of this trait can act as plugins for other types, via `OtherType::get<P>()`.
 ///
@@ -22,7 +19,7 @@ pub trait Plugin<E: ?Sized>: Key {
     /// type, it is important for implementers to remember that
     /// the result of `eval` is usually cached, so care should
     /// be taken when doing mutation on the extended type.
-    fn eval(&mut E, Phantom<Self>) -> Result<Self::Value, Self::Error>;
+    fn eval(&mut E) -> Result<Self::Value, Self::Error>;
 }
 
 /// Defines an interface that extensible types must implement.
@@ -77,7 +74,7 @@ pub trait Pluggable {
             return Ok(self.extensions_mut().get_mut::<P>().unwrap());
         }
 
-        Plugin::eval(self, Phantom::<P>).map(move |data| {
+        <P as Plugin<Self>>::eval(self).map(move |data| {
             match self.extensions_mut().entry::<P>() {
                 Vacant(entry) => entry.insert(data),
                 Occupied(..) => unsafe { unreachable() }
@@ -87,14 +84,17 @@ pub trait Pluggable {
 
     /// Create and evaluate a once-off instance of a plugin.
     fn compute<P: Plugin<Self>>(&mut self) -> Result<P::Value, P::Error> {
-        Plugin::eval(self, Phantom::<P>)
+        <P as Plugin<Self>>::eval(self)
     }
 }
 
 #[cfg(test)]
 mod test {
+    extern crate void;
+
+    use test::void::{Void, VoidExtensions};
+
     use typemap::{TypeMap, Key};
-    use phantom::Phantom;
     use super::{Extensible, Plugin, Pluggable};
 
     struct Extended {
@@ -116,14 +116,16 @@ mod test {
 
     macro_rules! generate_simple_plugin (
         ($t:ty, $v:ident, $v2:expr) => {
-            #[derive(PartialEq, Show, Clone)]
+            #[derive(PartialEq, Debug, Clone)]
             struct $v(i32);
 
             impl Key for $t { type Value = $t; }
 
             impl Plugin<Extended> for $t {
-                fn eval(_: &mut Extended, _: Phantom<$t>) -> Option<$t> {
-                    Some($v($v2))
+                type Error = Void;
+
+                fn eval(_: &mut Extended) -> Result<$t, Void> {
+                    Ok($v($v2))
                 }
             }
         }
@@ -142,24 +144,24 @@ mod test {
 
     #[test] fn test_simple() {
         let mut extended = Extended::new();
-        assert_eq!(extended.get::<One>(),   Some(One(1)));
-        assert_eq!(extended.get::<Two>(),   Some(Two(2)));
-        assert_eq!(extended.get::<Three>(), Some(Three(3)));
+        assert_eq!(extended.get::<One>(),   Ok(One(1)));
+        assert_eq!(extended.get::<Two>(),   Ok(Two(2)));
+        assert_eq!(extended.get::<Three>(), Ok(Three(3)));
     }
 
     #[test] fn test_resize() {
         let mut extended = Extended::new();
-        extended.get::<One>();
-        extended.get::<Two>();
-        extended.get::<Three>();
-        extended.get::<Four>();
-        extended.get::<Five>();
-        extended.get::<Six>();
-        extended.get::<Seven>();
-        extended.get::<Eight>();
-        extended.get::<Nine>();
-        extended.get::<Ten>();
-        assert_eq!(extended.get_ref::<One>(), Some(&One(1)))
+        extended.get::<One>().void_unwrap();
+        extended.get::<Two>().void_unwrap();
+        extended.get::<Three>().void_unwrap();
+        extended.get::<Four>().void_unwrap();
+        extended.get::<Five>().void_unwrap();
+        extended.get::<Six>().void_unwrap();
+        extended.get::<Seven>().void_unwrap();
+        extended.get::<Eight>().void_unwrap();
+        extended.get::<Nine>().void_unwrap();
+        extended.get::<Ten>().void_unwrap();
+        assert_eq!(extended.get_ref::<One>(), Ok(&One(1)))
     }
 
     #[test] fn test_custom_return_type() {
@@ -173,11 +175,13 @@ mod test {
 
         // Define the plugin evaluation function.
         impl Plugin<Extended> for IntPlugin {
-            fn eval(_: &mut Extended, _: Phantom<IntPlugin>) -> Option<i32> {
-                Some(0i32)
+            type Error = Void;
+
+            fn eval(_: &mut Extended) -> Result<i32, Void> {
+                Ok(0i32)
             }
         }
-        assert_eq!(extended.get::<IntPlugin>().unwrap(), 0i32);
+        assert_eq!(extended.get::<IntPlugin>().void_unwrap(), 0i32);
     }
 }
 

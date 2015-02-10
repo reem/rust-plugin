@@ -1,7 +1,9 @@
 extern crate plugin;
+extern crate void;
 extern crate typemap;
 
-use plugin::{Extensible, Plugin, Pluggable, Phantom};
+use void::Void;
+use plugin::{Extensible, Plugin, Pluggable};
 use typemap::{TypeMap, Key};
 
 struct Struct {
@@ -19,7 +21,7 @@ impl Extensible for Struct {
 
 impl Pluggable for Struct {}
 
-#[derive(Clone, Show)]
+#[derive(Clone, Debug)]
 struct IntPlugin {
     field: i32
 }
@@ -27,8 +29,10 @@ struct IntPlugin {
 impl Key for IntPlugin { type Value = IntPlugin; }
 
 impl Plugin<Struct> for IntPlugin {
-    fn eval(_: &mut Struct, _: Phantom<IntPlugin>) -> Option<IntPlugin> {
-        Some(IntPlugin { field: 7i32 })
+    type Error = Void;
+
+    fn eval(_: &mut Struct) -> Result<IntPlugin, Void> {
+        Ok(IntPlugin { field: 7i32 })
     }
 }
 
