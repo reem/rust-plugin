@@ -1,4 +1,4 @@
-#![allow(unstable)]
+#![feature(core)]
 #![deny(missing_docs, warnings)]
 
 //! Lazily-Evaluated, Order-Independent Plugins for Extensible Types.
@@ -14,13 +14,15 @@ pub use phantom::Phantom;
 /// To create a plugin, implement this trait and provide an empty implementation
 /// of `Key` to associate the plugin with its return type, `Key::Value`.
 pub trait Plugin<E: ?Sized>: Key {
+    type Error;
+
     /// Create the plugin from an instance of the extended type.
     ///
     /// While `eval` is given a mutable reference to the extended
     /// type, it is important for implementers to remember that
     /// the result of `eval` is usually cached, so care should
     /// be taken when doing mutation on the extended type.
-    fn eval(&mut E, Phantom<Self>) -> Option<Self::Value>;
+    fn eval(&mut E, Phantom<Self>) -> Result<Self::Value, Self::Error>;
 }
 
 /// Defines an interface that extensible types must implement.
@@ -41,21 +43,21 @@ pub trait Pluggable {
     /// Return a copy of the plugin's produced value.
     ///
     /// The plugin will be created if it doesn't exist already.
-    /// If plugin creation fails, `None` is returned.
+    /// If plugin creation fails, an error is returned.
     ///
     /// `P` is the plugin type.
-    fn get<P: Plugin<Self>>(&mut self) -> Option<P::Value>
-    where P::Value: Clone + 'static, Self: Extensible {
-        self.get_ref::<P>().cloned()
+    fn get<P: Plugin<Self>>(&mut self) -> Result<P::Value, P::Error>
+    where P::Value: Clone + 'static, Self: Extensible, P::Error: Clone {
+        self.get_ref::<P>().map(|v| v.clone())
     }
 
     /// Return a reference to the plugin's produced value.
     ///
     /// The plugin will be created if it doesn't exist already.
-    /// If plugin creation fails, `None` is returned.
+    /// If plugin creation fails an error is returned.
     ///
     /// `P` is the plugin type.
-    fn get_ref<P: Plugin<Self>>(&mut self) -> Option<&P::Value>
+    fn get_ref<P: Plugin<Self>>(&mut self) -> Result<&P::Value, P::Error>
     where P::Value: 'static, Self: Extensible {
         self.get_mut::<P>().map(|mutref| &*mutref)
     }
@@ -63,16 +65,16 @@ pub trait Pluggable {
     /// Return a mutable reference to the plugin's produced value.
     ///
     /// The plugin will be created if it doesn't exist already.
-    /// If plugin creation fails, `None` is returned.
+    /// If plugin creation fail an error is returned.
     ///
     /// `P` is the plugin type.
-    fn get_mut<P: Plugin<Self>>(&mut self) -> Option<&mut P::Value>
+    fn get_mut<P: Plugin<Self>>(&mut self) -> Result<&mut P::Value, P::Error>
     where P::Value: 'static, Self: Extensible {
         use typemap::Entry::{Occupied, Vacant};
         use std::intrinsics::unreachable;
 
         if self.extensions().contains::<P>() {
-            return self.extensions_mut().get_mut::<P>();
+            return Ok(self.extensions_mut().get_mut::<P>().unwrap());
         }
 
         Plugin::eval(self, Phantom::<P>).map(move |data| {
@@ -84,7 +86,7 @@ pub trait Pluggable {
     }
 
     /// Create and evaluate a once-off instance of a plugin.
-    fn compute<P: Plugin<Self>>(&mut self) -> Option<P::Value> {
+    fn compute<P: Plugin<Self>>(&mut self) -> Result<P::Value, P::Error> {
         Plugin::eval(self, Phantom::<P>)
     }
 }
