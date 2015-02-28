@@ -11,6 +11,7 @@ use typemap::{TypeMap, Key};
 /// To create a plugin, implement this trait and provide an empty implementation
 /// of `Key` to associate the plugin with its return type, `Key::Value`.
 pub trait Plugin<E: ?Sized>: Key {
+    /// The error type associated with this plugin.
     type Error;
 
     /// Create the plugin from an instance of the extended type.
