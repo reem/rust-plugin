@@ -93,7 +93,7 @@ pub trait Pluggable {
 mod test {
     extern crate void;
 
-    use test::void::{Void, VoidExtensions};
+    use test::void::{Void, ResultVoidExt};
 
     use typemap::{TypeMap, Key};
     use super::{Extensible, Plugin, Pluggable};
