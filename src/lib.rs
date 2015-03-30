@@ -4,6 +4,8 @@
 //! Lazily-Evaluated, Order-Independent Plugins for Extensible Types.
 
 extern crate typemap;
+
+use std::any::Any;
 use typemap::{TypeMap, Key};
 
 /// Implementers of this trait can act as plugins for other types, via `OtherType::get<P>()`.
@@ -45,7 +47,7 @@ pub trait Pluggable {
     ///
     /// `P` is the plugin type.
     fn get<P: Plugin<Self>>(&mut self) -> Result<P::Value, P::Error>
-    where P::Value: Clone + 'static, Self: Extensible, P::Error: Clone {
+    where P::Value: Clone + Any, Self: Extensible, P::Error: Clone {
         self.get_ref::<P>().map(|v| v.clone())
     }
 
@@ -56,7 +58,7 @@ pub trait Pluggable {
     ///
     /// `P` is the plugin type.
     fn get_ref<P: Plugin<Self>>(&mut self) -> Result<&P::Value, P::Error>
-    where P::Value: 'static, Self: Extensible {
+    where P::Value: Any, Self: Extensible {
         self.get_mut::<P>().map(|mutref| &*mutref)
     }
 
@@ -67,7 +69,7 @@ pub trait Pluggable {
     ///
     /// `P` is the plugin type.
     fn get_mut<P: Plugin<Self>>(&mut self) -> Result<&mut P::Value, P::Error>
-    where P::Value: 'static, Self: Extensible {
+    where P::Value: Any, Self: Extensible {
         use typemap::Entry::{Occupied, Vacant};
         use std::intrinsics::unreachable;
 
