@@ -7,7 +7,6 @@ extern crate typemap;
 
 use std::any::Any;
 use typemap::{TypeMap, Key};
-use std::any::Any;
 
 /// Implementers of this trait can act as plugins for other types, via `OtherType::get<P>()`.
 ///
