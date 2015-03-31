@@ -7,6 +7,7 @@ extern crate typemap;
 
 use std::any::Any;
 use typemap::{TypeMap, Key};
+use std::any::Any;
 
 /// Implementers of this trait can act as plugins for other types, via `OtherType::get<P>()`.
 ///
@@ -77,7 +78,7 @@ pub trait Pluggable {
             return Ok(self.extensions_mut().get_mut::<P>().unwrap());
         }
 
-        <P as Plugin<Self>>::eval(self).map(move |data| {
+        P::eval(self).map(move |data| {
             match self.extensions_mut().entry::<P>() {
                 Vacant(entry) => entry.insert(data),
                 Occupied(..) => unsafe { unreachable() }
