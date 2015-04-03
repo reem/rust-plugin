@@ -1,4 +1,3 @@
-#![feature(core)]
 #![deny(missing_docs, warnings)]
 
 //! Lazily-Evaluated, Order-Independent Plugins for Extensible Types.
@@ -71,7 +70,6 @@ pub trait Pluggable {
     fn get_mut<P: Plugin<Self>>(&mut self) -> Result<&mut P::Value, P::Error>
     where P::Value: Any, Self: Extensible {
         use typemap::Entry::{Occupied, Vacant};
-        use std::intrinsics::unreachable;
 
         if self.extensions().contains::<P>() {
             return Ok(self.extensions_mut().get_mut::<P>().unwrap());
@@ -80,7 +78,7 @@ pub trait Pluggable {
         P::eval(self).map(move |data| {
             match self.extensions_mut().entry::<P>() {
                 Vacant(entry) => entry.insert(data),
-                Occupied(..) => unsafe { unreachable() }
+                Occupied(..) => panic!("Unreachable.")
             }
         })
     }
