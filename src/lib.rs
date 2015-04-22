@@ -46,7 +46,7 @@ pub trait Pluggable {
     ///
     /// `P` is the plugin type.
     fn get<P: Plugin<Self>>(&mut self) -> Result<P::Value, P::Error>
-    where P::Value: Clone + Any, Self: Extensible, P::Error: Clone {
+    where P::Value: Clone + Any, Self: Extensible {
         self.get_ref::<P>().map(|v| v.clone())
     }
 
