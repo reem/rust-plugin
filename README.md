@@ -11,13 +11,15 @@ Plugins provide a consistent interface for mixin methods. You can use a plugin a
 struct IntPlugin;
 
 // Map it onto an `i32` value.
-impl Assoc<i32> for IntPlugin {}
+impl typemap::Key for IntPlugin { type Value = i32; }
 
 // Define the plugin evaluation function.
 // `Extended` is a type that implements `Extensible`.
-impl PluginFor<Extended, i32> for IntPlugin {
-    fn eval(_: &Extended, _: Phantom<IntPlugin>) -> Option<i32> {
-        Some(0i32)
+impl Plugin<Extended> for IntPlugin {
+    type Error = ();
+
+    fn eval(_: &mut Extended) -> Result<i32, ()> {
+        Ok(0i32)
     }
 }
 assert_eq!(extended.get::<IntPlugin>().unwrap(), 0i32);
