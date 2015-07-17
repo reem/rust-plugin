@@ -36,8 +36,6 @@ pub trait Extensible {
 }
 
 /// An interface for plugins that cache values between calls.
-///
-/// `R` is the type of the plugin's return value, which must be cloneable.
 pub trait Pluggable {
     /// Return a copy of the plugin's produced value.
     ///
