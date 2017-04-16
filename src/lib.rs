@@ -2,10 +2,13 @@
 
 //! Lazily-Evaluated, Order-Independent Plugins for Extensible Types.
 
-extern crate typemap;
+//extern crate typemap;
+extern crate unsafe_any as uany;
+pub mod typemap;
 
 use std::any::Any;
-use typemap::{TypeMap, Key};
+use typemap::{Key, TypeMap};
+use typemap::Implements;
 
 /// Implementers of this trait can act as plugins for other types, via `OtherType::get<P>()`.
 ///
@@ -27,24 +30,24 @@ pub trait Plugin<E: ?Sized>: Key {
 /// Defines an interface that extensible types must implement.
 ///
 /// Extensible types must contain a TypeMap.
-pub trait Extensible {
+pub trait Extensible<A: uany::UnsafeAnyExt + ?Sized = uany::UnsafeAny> {
     /// Get a reference to the type's extension storage.
-    fn extensions(&self) -> &TypeMap;
+    fn extensions(&self) -> &TypeMap<A>;
 
     /// Get a mutable reference to the type's extension storage.
-    fn extensions_mut(&mut self) -> &mut TypeMap;
+    fn extensions_mut(&mut self) -> &mut TypeMap<A>;
 }
 
 /// An interface for plugins that cache values between calls.
-pub trait Pluggable {
+pub trait Pluggable<A: uany::UnsafeAnyExt + ?Sized = uany::UnsafeAny> {
     /// Return a copy of the plugin's produced value.
     ///
     /// The plugin will be created if it doesn't exist already.
     /// If plugin creation fails, an error is returned.
     ///
     /// `P` is the plugin type.
-    fn get<P: Plugin<Self>>(&mut self) -> Result<P::Value, P::Error>
-    where P::Value: Clone + Any, Self: Extensible {
+    fn get<'a, P: Plugin<Self>>(&'a mut self) -> Result<P::Value, P::Error>
+    where P::Value: Clone + Any + Implements<A>, Self: Extensible<A>, A: 'a {
         self.get_ref::<P>().map(|v| v.clone())
     }
 
@@ -54,8 +57,8 @@ pub trait Pluggable {
     /// If plugin creation fails an error is returned.
     ///
     /// `P` is the plugin type.
-    fn get_ref<P: Plugin<Self>>(&mut self) -> Result<&P::Value, P::Error>
-    where P::Value: Any, Self: Extensible {
+    fn get_ref<'a, P: Plugin<Self>>(&'a mut self) -> Result<&P::Value, P::Error>
+    where P::Value: Any + Implements<A>, Self: Extensible<A>, A: 'a {
         self.get_mut::<P>().map(|mutref| &*mutref)
     }
 
@@ -65,8 +68,8 @@ pub trait Pluggable {
     /// If plugin creation fail an error is returned.
     ///
     /// `P` is the plugin type.
-    fn get_mut<P: Plugin<Self>>(&mut self) -> Result<&mut P::Value, P::Error>
-    where P::Value: Any, Self: Extensible {
+    fn get_mut<'a, P: Plugin<Self>>(&'a mut self) -> Result<&mut P::Value, P::Error>
+    where P::Value: Any + Implements<A>, Self: Extensible<A>, A: 'a {
         use typemap::Entry::{Occupied, Vacant};
 
         if self.extensions().contains::<P>() {
@@ -93,25 +96,25 @@ mod test {
 
     use test::void::{Void, ResultVoidExt};
 
-    use typemap::{TypeMap, Key};
+    use typemap::{SendMap, Key};
     use super::{Extensible, Plugin, Pluggable};
 
     struct Extended {
-        map: TypeMap
+        map: SendMap
     }
 
     impl Extended {
         fn new() -> Extended {
-            Extended { map: TypeMap::new() }
+            Extended { map: SendMap::custom() }
         }
     }
 
-    impl Extensible for Extended {
-        fn extensions(&self) -> &TypeMap { &self.map }
-        fn extensions_mut(&mut self) -> &mut TypeMap { &mut self.map }
+    impl Extensible<::uany::UnsafeAny + Send> for Extended {
+        fn extensions(&self) -> &SendMap { &self.map }
+        fn extensions_mut(&mut self) -> &mut SendMap { &mut self.map }
     }
 
-    impl Pluggable for Extended {}
+    impl Pluggable<::uany::UnsafeAny + Send> for Extended {}
 
     macro_rules! generate_simple_plugin (
         ($t:ty, $v:ident, $v2:expr) => {

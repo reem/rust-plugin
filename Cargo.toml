@@ -9,6 +9,7 @@ license = "MIT"
 
 [dependencies]
 typemap = "*"
+unsafe-any = "*"
 
 [dev-dependencies]
 void = "*"

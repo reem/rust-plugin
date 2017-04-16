@@ -1,10 +1,10 @@
 extern crate plugin;
 extern crate void;
-extern crate typemap;
+//extern crate typemap;
 
 use void::Void;
 use plugin::{Extensible, Plugin, Pluggable};
-use typemap::{TypeMap, Key};
+use plugin::typemap::{TypeMap, Key};
 
 struct Struct {
     map: TypeMap
